@@ -1,0 +1,27 @@
+clc; clear;
+
+%% Step 1: Load the GeoTIFF using imread
+filename = 'olympex_ASO_USWA_OL_20140904_f1a1_mcc_bareDEM_3p0m_despiked.tif';
+DEM_raw = imread(filename);        % Load elevation data as image
+
+% Convert to double for processing
+DEM_raw = double(DEM_raw);
+
+%% Step 2: Downsample to visualize easily
+downsample_factor = 5;
+DEM_vis = DEM_raw(1:downsample_factor:end, 1:downsample_factor:end);
+
+% Handle invalid or low values (e.g., negative elevation)
+DEM_vis(DEM_vis < 0) = NaN;
+
+% Normalize for colormap
+DEM_vis_norm = DEM_vis - min(DEM_vis(:));
+DEM_vis_norm = DEM_vis_norm / max(DEM_vis_norm(:));
+
+%% Step 3: Visualize
+figure;
+imagesc(DEM_vis);  % or use DEM_vis_norm for normalized brightness
+axis equal tight;
+colormap(jet); colorbar;
+title('DEM Visualization');
+xlabel('X (pixels)'); ylabel('Y (pixels)');
