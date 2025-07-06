@@ -1,0 +1,108 @@
+clc; clear;
+
+%% --- Load DEM and Setup Grid ---
+filename = 'olympex_ASO_USWA_OL_20140904_f1a1_mcc_bareDEM_3p0m_despiked.tif';
+DEM_raw = double(imread(filename));
+DEM_raw(DEM_raw < 0) = NaN;
+
+% Extract center 128x128 region
+[Nrows, Ncols] = size(DEM_raw);
+center_row = round(Nrows / 2);
+center_col = round(Ncols / 2);
+half_size = 64;
+DEM = DEM_raw(center_row-half_size+1:center_row+half_size, ...
+              center_col-half_size+1:center_col+half_size);
+DEM(isnan(DEM)) = mean(DEM(:));
+
+pixel_spacing = 3;
+[nx, ny] = size(DEM);
+[x_grid, y_grid] = meshgrid((0:ny-1) * pixel_spacing, (0:nx-1) * pixel_spacing);
+z_grid = DEM;
+
+%% --- Parameter Sets ---
+altitudes = [3000, 5000];               % in meters
+frequencies = [5e9, 10e9];              % in Hz
+velocities = [100, 150];                % m/s
+powers = [500, 1000];                   % in Watts
+PRI = 1e-4;                             % Pulse Repetition Interval
+T_p = 10e-6;                            % Pulse width
+B = 20e6;                               % Bandwidth
+Fs = 2 * B;
+K = B / T_p;
+n_pulses = 256;
+c = 3e8;
+
+t_range = -T_p/2 : 1/Fs : T_p/2 - 1/Fs;
+n_samples = length(t_range);
+
+tx_window = hamming(n_samples).';
+
+%% --- Loop Through Combinations ---
+comb_id = 1;
+for h = altitudes
+    for fc = frequencies
+        for v = velocities
+            for P_tx = powers
+
+                lambda = c / fc;
+                t_slow = (0:n_pulses-1) * PRI;
+                cross_range_axis = (t_slow - mean(t_slow)) * v;
+                range_axis = c * t_range / 2 + 7000;
+
+                s_rx = zeros(n_pulses, n_samples);
+
+                for n = 1:n_pulses
+                    x_radar = v * t_slow(n);
+                    y_radar = 0;
+                    pulse_echo = zeros(1, n_samples);
+
+                    for i = 1:nx
+                        for j = 1:ny
+                            x_t = x_grid(i,j);
+                            y_t = y_grid(i,j);
+                            z_t = z_grid(i,j);
+
+                            R = sqrt((x_t - x_radar)^2 + (y_t - y_radar)^2 + (h - z_t)^2);
+                            tau = 2 * R / c;
+
+                            delayed = exp(1j * pi * K * (t_range - tau).^2);
+                            phase = exp(-1j * 4 * pi * fc * R / c);
+                            amp = 1;  % Optional: reflectivity model
+                            pulse_echo = pulse_echo + amp * delayed .* phase;
+                        end
+                    end
+
+                    s_rx(n, :) = pulse_echo;
+                end
+
+                % Transmit chirp
+                s_tx = exp(1j * pi * K * t_range.^2) .* tx_window;
+
+                % Range compression
+                s_range = conv2(s_rx, conj(fliplr(s_tx)), 'same');
+
+                % Azimuth compression
+                ref_idx = round(n_samples/2);
+                azimuth_ref = conj(flipud(s_range(:, ref_idx)));
+                s_focused = conv2(s_range, azimuth_ref, 'same');
+
+                % Normalize
+                image_dB = 20 * log10(abs(s_focused) / max(abs(s_focused(:))));
+
+                % Plot
+                figure;
+                imagesc(range_axis, cross_range_axis, image_dB);
+                xlabel('Range (m)'); ylabel('Cross-Range (m)');
+                title(sprintf('SAR | h=%dm, fc=%.1fGHz, v=%dm/s, P=%dW', h, fc/1e9, v, P_tx));
+                colormap(jet); colorbar; caxis([-40 0]);
+                axis tight;
+
+                % Optional: save image
+                filename = sprintf('SAR_h%d_fc%.0fGHz_v%d_P%dW.png', h, fc/1e9, v, P_tx);
+                saveas(gcf, filename);
+
+                comb_id = comb_id + 1;
+            end
+        end
+    end
+end
