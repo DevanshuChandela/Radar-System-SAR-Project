@@ -3,13 +3,6 @@
 ## 📡 Overview
 This project implements a Synthetic Aperture Radar (SAR) simulation using MATLAB, analyzing radar returns from both point targets and real-world terrains via DEM (Digital Elevation Model) data. The simulation explores the impact of various radar and environmental parameters — such as velocity, elevation, weather, and power — on SAR image quality and resolution.
 
-## 👨‍💻 Team Members
-Abhinav Kumar Saxena (2022018)
-
-Devanshu Chandela (2022153)
-
-Naman Garg (2022602)
-
 ## ⚙️ Features
 Stripmap SAR Simulation using a point target
 
@@ -108,4 +101,12 @@ Language: MATLAB
 Libraries/Toolboxes: Signal Processing, Image Processing
 
 External Data: NASA DEM (.tif files)
+
+
+## 👨‍💻 Team Members
+Abhinav Kumar Saxena (2022018)
+
+Devanshu Chandela (2022153)
+
+Naman Garg (2022602)
 
